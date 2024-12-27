@@ -33,12 +33,14 @@ public class JwtBlacklistService {
     public boolean isTokenBlacklisted(String currentToken) {
         String username = jwtUtil.getUsernameFromToken(currentToken);
         Optional<JwtBlacklist> blacklistedToken = jwtBlacklistRepository.findTopByUsernameOrderByExpirationTime(username);
+
         if (blacklistedToken.isEmpty()) {
             return false;
         }
 
         Instant instant = jwtUtil.getExpirationDateFromToken(currentToken).toInstant();
         LocalDateTime localDateTime = LocalDateTime.ofInstant(instant, ZoneId.systemDefault());
+
         return blacklistedToken.get().getExpirationTime().isAfter(localDateTime.minusMinutes(60));
     }
 }

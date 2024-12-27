@@ -4,9 +4,11 @@ import com.example.traffic.dto.SignUpUser;
 import com.example.traffic.entity.User;
 import com.example.traffic.jwt.JwtUtil;
 import com.example.traffic.service.CustomUserDetailsService;
+import com.example.traffic.service.JwtBlacklistService;
 import com.example.traffic.service.UserService;
 import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -19,6 +21,10 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.Date;
 import java.util.List;
 
 @RestController
@@ -29,18 +35,21 @@ public class UserController {
     private final AuthenticationManager authenticationManager;
     private final CustomUserDetailsService userDetailsService;
     private final JwtUtil jwtUtil;
+    private final JwtBlacklistService jwtBlacklistService;
 
     @Autowired
     public UserController(
             UserService userService,
             AuthenticationManager authenticationManager,
             CustomUserDetailsService userDetailsService,
-            JwtUtil jwtUtil
+            JwtUtil jwtUtil,
+            JwtBlacklistService jwtBlacklistService
     ) {
         this.userService = userService;
         this.authenticationManager = authenticationManager;
         this.userDetailsService = userDetailsService;
         this.jwtUtil = jwtUtil;
+        this.jwtBlacklistService = jwtBlacklistService;
     }
 
     @GetMapping("")
@@ -67,7 +76,7 @@ public class UserController {
         UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
         String token = jwtUtil.generateToken(userDetails.getUsername());
-
+        System.out.println(token);
         Cookie cookie = new Cookie("traffic_token", token);
         cookie.setHttpOnly(true);
         cookie.setPath("/");
@@ -85,6 +94,33 @@ public class UserController {
         cookie.setHttpOnly(true);
         cookie.setPath("/");
         cookie.setMaxAge(0); // 쿠키 삭제
+        response.addCookie(cookie);
+    }
+
+    // 모든 기기에 대한 로그아웃 처리
+    @PostMapping("/logout/all")
+    public void logout(@RequestParam(required = false) String requestToken, @CookieValue(value = "onion_token", required = false) String cookieToken, HttpServletRequest request, HttpServletResponse response) {
+        String token = null;
+        String bearerToken = request.getHeader("Authorization");
+
+        if (requestToken != null) {
+            token = requestToken;
+        } else if (cookieToken != null) {
+            token = cookieToken;
+        } else if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
+            token = bearerToken.substring(7);
+        }
+
+        Instant instant = new Date().toInstant();
+        LocalDateTime expirationTime = instant.atZone(ZoneId.systemDefault()).toLocalDateTime();
+        String username = jwtUtil.getUsernameFromToken(token);
+        jwtBlacklistService.blacklistToken(token, expirationTime, username);
+
+        Cookie cookie = new Cookie("onion_token", null);
+        cookie.setHttpOnly(true);
+        cookie.setPath("/");
+        cookie.setMaxAge(0); // 쿠키 삭제
+
         response.addCookie(cookie);
     }
 
