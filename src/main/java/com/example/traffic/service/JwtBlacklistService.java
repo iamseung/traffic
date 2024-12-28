@@ -41,6 +41,7 @@ public class JwtBlacklistService {
         Instant instant = jwtUtil.getExpirationDateFromToken(currentToken).toInstant();
         LocalDateTime localDateTime = LocalDateTime.ofInstant(instant, ZoneId.systemDefault());
 
+        // 현재 토큰의 만료 시간에서 - 한 시간을 해줘야 생성 시간 임을 계산
         return blacklistedToken.get().getExpirationTime().isAfter(localDateTime.minusMinutes(60));
     }
 }

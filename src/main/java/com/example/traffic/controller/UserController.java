@@ -15,7 +15,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
@@ -36,6 +35,8 @@ public class UserController {
     private final CustomUserDetailsService userDetailsService;
     private final JwtUtil jwtUtil;
     private final JwtBlacklistService jwtBlacklistService;
+
+    private static final String tokenName = "traffic_token";
 
     @Autowired
     public UserController(
@@ -77,7 +78,7 @@ public class UserController {
 
         String token = jwtUtil.generateToken(userDetails.getUsername());
         System.out.println(token);
-        Cookie cookie = new Cookie("traffic_token", token);
+        Cookie cookie = new Cookie(tokenName, token);
         cookie.setHttpOnly(true);
         cookie.setPath("/");
         cookie.setMaxAge(60 * 60);
@@ -90,7 +91,7 @@ public class UserController {
 
     @PostMapping("/logout")
     public void logout(HttpServletResponse response) {
-        Cookie cookie = new Cookie("traffic_token", null);
+        Cookie cookie = new Cookie(tokenName, null);
         cookie.setHttpOnly(true);
         cookie.setPath("/");
         cookie.setMaxAge(0); // 쿠키 삭제
@@ -99,7 +100,12 @@ public class UserController {
 
     // 모든 기기에 대한 로그아웃 처리
     @PostMapping("/logout/all")
-    public void logout(@RequestParam(required = false) String requestToken, @CookieValue(value = "onion_token", required = false) String cookieToken, HttpServletRequest request, HttpServletResponse response) {
+    public void logout(
+            @RequestParam(required = false) String requestToken,
+            @CookieValue(value = tokenName, required = false) String cookieToken,
+            HttpServletRequest request,
+            HttpServletResponse response
+    ) {
         String token = null;
         String bearerToken = request.getHeader("Authorization");
 
@@ -113,10 +119,11 @@ public class UserController {
 
         Instant instant = new Date().toInstant();
         LocalDateTime expirationTime = instant.atZone(ZoneId.systemDefault()).toLocalDateTime();
+
         String username = jwtUtil.getUsernameFromToken(token);
         jwtBlacklistService.blacklistToken(token, expirationTime, username);
 
-        Cookie cookie = new Cookie("onion_token", null);
+        Cookie cookie = new Cookie(tokenName, null);
         cookie.setHttpOnly(true);
         cookie.setPath("/");
         cookie.setMaxAge(0); // 쿠키 삭제

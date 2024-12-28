@@ -1,5 +1,6 @@
 package com.example.traffic.jwt;
 
+import com.example.traffic.service.JwtBlacklistService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
@@ -18,16 +19,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
     private final UserDetailsService userDetailsService;
+    private final JwtBlacklistService jwtBlacklistService;
+    private static final String tokenName = "traffic_token";
 
-    public JwtAuthenticationFilter(JwtUtil jwtUtil, UserDetailsService userDetailsService) {
+    public JwtAuthenticationFilter(JwtUtil jwtUtil, UserDetailsService userDetailsService, JwtBlacklistService jwtBlacklistService) {
         this.jwtUtil = jwtUtil;
         this.userDetailsService = userDetailsService;
+        this.jwtBlacklistService = jwtBlacklistService;
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws IOException, ServletException {
         String token = resolveToken(request);
-        if (token != null && jwtUtil.validateToken(token)) {
+        if (token != null && jwtUtil.validateToken(token) && !jwtBlacklistService.isTokenBlacklisted(token)) {
             String username = jwtUtil.getUsernameFromToken(token);
             UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
@@ -53,7 +57,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             if (cookies != null) {
                 for (Cookie cookie : cookies) {
-                    if ("traffic_token".equals(cookie.getName())) {
+                    if (tokenName.equals(cookie.getName())) {
                         return cookie.getValue();
                     }
                 }
