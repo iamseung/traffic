@@ -2,6 +2,7 @@ package com.example.traffic.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -64,5 +65,16 @@ public class Article {
     @PreUpdate
     protected void onUpdate() {
         this.updatedDate = LocalDateTime.now();
+    }
+
+    @Builder
+    public Article(User author, Board board, String title, String content) {
+        this.author = author;
+        this.board = board;
+        this.title = title;
+        this.content = content;
+        this.isDeleted = false;
+        this.viewCount = 0L;
+        this.createdDate = LocalDateTime.now();
     }
 }

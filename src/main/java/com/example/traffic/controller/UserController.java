@@ -77,7 +77,6 @@ public class UserController {
         UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
         String token = jwtUtil.generateToken(userDetails.getUsername());
-        System.out.println(token);
         Cookie cookie = new Cookie(tokenName, token);
         cookie.setHttpOnly(true);
         cookie.setPath("/");
