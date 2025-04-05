@@ -1,0 +1,41 @@
+spring:
+  application:
+    name: traffic
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/traffic-db
+    username: seungseok
+    password: votmdnjem
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+    hikari:
+      pool-name: HikariCP
+      maximum-pool-size: 10
+      minimum-idle: 5
+      idle-timeout: 30000
+      connection-timeout: 20000
+      max-lifetime: 1800000
+      connection-test-query: SELECT 1
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    database-platform: org.hibernate.dialect.MySQLDialect
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  redis:
+    host: localhost
+    port: 6379
+
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017/onion-db
+
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: onion-user
+    password: onion1!
