@@ -2,9 +2,11 @@ package com.example.traffic.controller;
 
 import com.example.traffic.dto.SignUpUser;
 import com.example.traffic.entity.User;
+import com.example.traffic.entity.UserNotificationHistory;
 import com.example.traffic.jwt.JwtUtil;
 import com.example.traffic.service.CustomUserDetailsService;
 import com.example.traffic.service.JwtBlacklistService;
+import com.example.traffic.service.UserNotificationHistoryService;
 import com.example.traffic.service.UserService;
 import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.servlet.http.Cookie;
@@ -30,31 +32,28 @@ import java.util.List;
 @RequestMapping("/api/users")
 public class UserController {
 
-    private final UserService userService;
     private final AuthenticationManager authenticationManager;
-    private final CustomUserDetailsService userDetailsService;
+    private final UserService userService;
     private final JwtUtil jwtUtil;
+    private final CustomUserDetailsService userDetailsService;
     private final JwtBlacklistService jwtBlacklistService;
 
-    private static final String tokenName = "traffic_token";
+    private final UserNotificationHistoryService userNotificationHistoryService;
 
     @Autowired
-    public UserController(
-            UserService userService,
-            AuthenticationManager authenticationManager,
-            CustomUserDetailsService userDetailsService,
-            JwtUtil jwtUtil,
-            JwtBlacklistService jwtBlacklistService
-    ) {
+    public UserController(UserService userService, AuthenticationManager authenticationManager, JwtUtil jwtUtil,
+                          CustomUserDetailsService userDetailsService, JwtBlacklistService jwtBlacklistService,
+                          UserNotificationHistoryService userNotificationHistoryService) {
         this.userService = userService;
         this.authenticationManager = authenticationManager;
-        this.userDetailsService = userDetailsService;
         this.jwtUtil = jwtUtil;
+        this.userDetailsService = userDetailsService;
         this.jwtBlacklistService = jwtBlacklistService;
+        this.userNotificationHistoryService = userNotificationHistoryService;
     }
 
     @GetMapping("")
-    public ResponseEntity<List<User>> getUsers() {
+    public ResponseEntity<List<User>> getUserS() {
         return ResponseEntity.ok(userService.getUsers());
     }
 
@@ -77,37 +76,28 @@ public class UserController {
         UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
         String token = jwtUtil.generateToken(userDetails.getUsername());
-        Cookie cookie = new Cookie(tokenName, token);
+        Cookie cookie = new Cookie("onion_token", token);
         cookie.setHttpOnly(true);
         cookie.setPath("/");
         cookie.setMaxAge(60 * 60);
-        // cookie.setSecure(true); // https
 
         response.addCookie(cookie);
-
         return token;
     }
 
     @PostMapping("/logout")
     public void logout(HttpServletResponse response) {
-        Cookie cookie = new Cookie(tokenName, null);
+        Cookie cookie = new Cookie("onion_token", null);
         cookie.setHttpOnly(true);
         cookie.setPath("/");
         cookie.setMaxAge(0); // 쿠키 삭제
         response.addCookie(cookie);
     }
 
-    // 모든 기기에 대한 로그아웃 처리
     @PostMapping("/logout/all")
-    public void logout(
-            @RequestParam(required = false) String requestToken,
-            @CookieValue(value = tokenName, required = false) String cookieToken,
-            HttpServletRequest request,
-            HttpServletResponse response
-    ) {
+    public void logout(@RequestParam(required = false) String requestToken, @CookieValue(value = "onion_token", required = false) String cookieToken, HttpServletRequest request, HttpServletResponse response) {
         String token = null;
         String bearerToken = request.getHeader("Authorization");
-
         if (requestToken != null) {
             token = requestToken;
         } else if (cookieToken != null) {
@@ -115,27 +105,33 @@ public class UserController {
         } else if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
             token = bearerToken.substring(7);
         }
-
         Instant instant = new Date().toInstant();
         LocalDateTime expirationTime = instant.atZone(ZoneId.systemDefault()).toLocalDateTime();
-
         String username = jwtUtil.getUsernameFromToken(token);
         jwtBlacklistService.blacklistToken(token, expirationTime, username);
-
-        Cookie cookie = new Cookie(tokenName, null);
+        Cookie cookie = new Cookie("onion_token", null);
         cookie.setHttpOnly(true);
         cookie.setPath("/");
         cookie.setMaxAge(0); // 쿠키 삭제
-
         response.addCookie(cookie);
     }
 
-    // 토큰 검화
     @PostMapping("/token/validation")
     @ResponseStatus(HttpStatus.OK)
     public void jwtValidate(@RequestParam String token) {
         if (!jwtUtil.validateToken(token)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Token is not validation");
         }
+    }
+
+    @PostMapping("/history")
+    @ResponseStatus(HttpStatus.OK)
+    public void readHistory(@RequestParam String historyId) {
+        userNotificationHistoryService.readNotification(historyId);
+    }
+
+    @GetMapping("/history")
+    public ResponseEntity<List<UserNotificationHistory>> getHistoryList() {
+        return ResponseEntity.ok(userNotificationHistoryService.getNotificationList());
     }
 }
